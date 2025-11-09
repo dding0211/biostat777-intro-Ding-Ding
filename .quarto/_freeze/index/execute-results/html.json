@@ -1,0 +1,15 @@
+{
+  "hash": "1139bb346251a6b752aa536853166f40",
+  "result": {
+    "engine": "knitr",
+    "markdown": "---\ntitle: \"Ding Ding\"\n---\n\nHi, My name is Ding Ding. I'm a first year ScM student in Biostatistics at Johns Hopkins University.\n\n\n::: {.cell}\n\n```{.r .cell-code}\n1 + 1\n```\n\n::: {.cell-output .cell-output-stdout}\n\n```\n[1] 2\n```\n\n\n:::\n:::\n\n",
+    "supporting": [],
+    "filters": [
+      "rmarkdown/pagebreak.lua"
+    ],
+    "includes": {},
+    "engineDependencies": {},
+    "preserve": {},
+    "postProcess": true
+  }
+}

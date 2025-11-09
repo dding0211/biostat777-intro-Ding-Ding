@@ -1,0 +1,11 @@
+---
+title: "Ding Ding"
+---
+
+Hi, My name is Ding Ding. I'm a first year ScM student in Biostatistics at Johns Hopkins University.
+
+I enjoy cooking, baking, and any food-related recreational activities. Here is the famous dish I recreated from Ratatouille:
+
+![](images/IMG_3940.jpg)
+
+![](images/IMG_3942.jpg)

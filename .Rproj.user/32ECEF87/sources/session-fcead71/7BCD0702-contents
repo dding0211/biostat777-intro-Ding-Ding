@@ -1,0 +1,255 @@
+---
+title: "Example Analysis"
+format: html
+bibliography: references.bib
+---
+
+# Musical Characteristics of Songs We Liked on the Billboard Hot 100
+
+![](images/C-C-Music-Factory-Gonna-Make-You-Sweat-album-artwork-2025-billboard-1240.webp){fig-align="center"}
+
+-   This page will analyze billboard data about every song to ever top the Billboard Hot 100 between August 4, 1958 and January 11, 2025.
+
+::: {.callout-note title="Notes on dataset"}
+The original dataset contains 105 variables. We'll only keep 10 variables of interests for this analysis using the reduced billboard dataset.
+:::
+
+```{r}
+# Using R
+# Option 1: tidytuesdayR R package 
+## install.packages("tidytuesdayR")
+
+tuesdata <- tidytuesdayR::tt_load('2025-08-26')
+## OR
+tuesdata <- tidytuesdayR::tt_load(2025, week = 34)
+
+billboard <- tuesdata$billboard
+topics <- tuesdata$topics
+
+# Option 2: Read directly from GitHub
+
+billboard <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2025/2025-08-26/billboard.csv')
+```
+
+```{r}
+library(dplyr)
+
+# keep exactly these variables
+billboard_reduced <- billboard %>%
+  select(
+    artist,
+    song,
+    date,
+    foreign_language,
+    intro_length_sec,
+    happiness,
+    danceability,
+    energy,
+    bpm,
+    overall_rating
+  )
+
+```
+
+# Questions
+
+This analysis investigates the features of highly rated rate songs on billboard hot 100 and patterns of change over years. How do top-rated vs lower-rated songs compare on BPM and mood (energy, happiness, and danceability)? Is there a relationship between intro length and overall rating? How do these features change over the year?
+
+# Intended Audience
+
+This analysis synthesizes the key features and musical qualities that are common among higher-rated songs. The results may be useful for songwriters, producers, and music labels aiming to create hit songs, and they also provide insights into broader trends in the music industry for interested listeners.
+
+# Data Source
+
+-   The dataset was compiled by Chris Dalla Riva as he wrote the book [Uncharted Territory: What Numbers Tell Us about the Biggest Hit Songs and Ourselves](https://bio.site/uncharted_territory). @molanphy2023
+
+-   The dataset was obtained from the TidyTuesday open-data project: <https://github.com/rfordatascience/tidytuesday/blob/main/data/2025/2025-08-26/readme.md> @tidytuesday2024
+
+# Data Dictionary
+
+```{r}
+library(dplyr)
+library(knitr)
+library(tibble)
+
+# Create a data dictionary manually
+
+data_dictionary <- tribble(
+~Variable,           ~Type,         ~Description,
+"artist",            "character",   "Name of the artist or band.",
+"song",              "character",   "Title of the song.",
+"date",              "date",        "Date when the song charted on Billboard Hot 100.",
+"foreign_language",  "numeric",     "Indicator if the song is primarily non-English (1 = Yes, 0 = No).",
+"intro_length_sec",  "numeric",     "Length of the song's intro in seconds before vocals or main beat.",
+"happiness",         "numeric",     "Valence score (how positive/happy the song feels).",
+"danceability",      "numeric",     "How suitable the track is for dancing (0–100 scale).",
+"energy",            "numeric",     "Intensity and activity level of the song (0–100 scale).",
+"bpm",               "numeric",     "Song tempo measured in Beats Per Minute.",
+"overall_rating",    "numeric",     "Billboard rating score of the song."
+)
+
+kable(
+data_dictionary,
+caption = "📄 Data Dictionary for Billboard Song Dataset"
+)
+
+```
+
+# Data Analysis
+
+## Plot 1: Song Ratings by Into Length (Boxplot)
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+billboard_intro_groups <- billboard_reduced %>%
+  mutate(intro_category = case_when(
+    intro_length_sec <= 10 ~ "Short (0–10s)",
+    intro_length_sec <= 30 ~ "Medium (11–30s)",
+    TRUE ~ "Long (30s+)"
+  ))
+
+billboard_intro_groups %>%
+  ggplot(aes(intro_category, overall_rating, fill = intro_category)) +
+  geom_boxplot() +
+  labs(
+    title = "Song Ratings by Intro Length Category",
+    x = "Intro Length Category",
+    y = "Overall Rating"
+  ) +
+  theme(legend.position = "none")
+
+
+```
+
+## Plot 2: BPM, Intro Length, Happiness level trends across time
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(lubridate)
+
+
+billboard_reduced <- billboard_reduced %>%
+  mutate(date = as.Date(date))
+
+# Select + reshape data into long format
+trend_data <- billboard_reduced %>%
+  select(date, intro_length_sec, bpm, happiness) %>%
+  pivot_longer(
+    cols = c(intro_length_sec, bpm, happiness),
+    names_to = "feature",
+    values_to = "value"
+  )
+
+# Plot
+trend_data %>%
+  ggplot(aes(x = date, y = value, color = feature)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(se = FALSE) +
+  facet_wrap(~ feature, scales = "free_y") +
+  labs(
+    title = "Song Intro Length, BPM, and Happiness Levl Across Time",
+    subtitle = "Each facet shows how a musical characteristic trends across time",
+    x = "Year / Date",
+    y = "Value",
+    color = "Feature"
+  ) +
+  theme_minimal()
+
+```
+
+## Plot 3: BPM and Mood by High rated songs and low rated songs
+
+```{r}
+library(dplyr)
+
+billboard_grouped <- billboard_reduced %>%
+  filter(!is.na(overall_rating)) %>%
+  mutate(
+    rating_category = case_when(
+      overall_rating >= quantile(overall_rating, 0.75, na.rm = TRUE) ~ "High Rated",
+      overall_rating <= quantile(overall_rating, 0.25, na.rm = TRUE) ~ "Low Rated"
+    )
+  ) %>%
+  # keep only high/low
+  filter(!is.na(rating_category))
+
+#BPM
+billboard_grouped %>%
+  ggplot(aes(x = rating_category, y = bpm, fill = rating_category)) +
+  geom_boxplot() +
+  labs(
+    title = "BPM of High vs Low Rated Songs",
+    x = "",
+    y = "Beats Per Minute (BPM)"
+  ) +
+  theme(legend.position = "none")
+
+#Mood
+library(tidyr)
+library(ggplot2)
+
+billboard_grouped %>%
+  select(rating_category, happiness, danceability, energy) %>%
+  pivot_longer(cols = -rating_category, names_to = "feature", values_to = "value") %>%
+  ggplot(aes(x = rating_category, y = value, fill = rating_category)) +
+  geom_boxplot() +
+  facet_wrap(~ feature, scales = "free") +
+  labs(
+    title = "Musical Characteristics: High vs Low Rated Songs",
+    x = "",
+    y = "Value"
+  ) +
+  theme(legend.position = "none")
+
+
+```
+
+```{r}
+#| column: margin
+#| echo: false
+#| results: asis
+
+library(knitr)
+library(tibble)
+
+summary_tbl <- tibble::tribble(
+  ~rating_category, ~avg_bpm, ~avg_energy, ~avg_happiness, ~avg_danceability, ~n,
+  "High Rated",      116,      60.9,        65.2,           63.3,              331,
+  "Low Rated",       116,      58.9,        58.8,           62.0,              358
+)
+
+knitr::kable(
+  summary_tbl,
+  caption = "Table Summary of Features: High vs Low Rated Songs"
+)
+```
+
+# Summary
+
+::: {.callout-note title="Main Takeaway"}
+Pop music today is faster to start, less happy, but more energetic and danceable.
+:::
+
+The boxplot comparing song ratings by intro length shows no strong evidence that longer intros lead to higher song ratings.
+
+The median rating is similar across all three categories High-rated songs tend to have noticeably higher BPM, danceability, and energy than low-rated songs. These results suggest that upbeat, fast-tempo, energetic songs are more likely to be rated highly, indicating that slower and more mellow tracks are less favored by listeners.
+
+In the 1980-2000s, songs often had long instrumental intros. Over time, intros have shrunk dramatically. This reflects modern streaming-era behavior: listeners skip quickly, so songs get to the point faster. This observation is supported by prior research: a study from Ohio State University found that instrumental intros on top-10 songs have shrunk from more than 20 seconds in the 1980s to around 5 seconds today @leveillegauvin2017. Tempo (BPM) remains fairly steady. Happiness level declines noticeably. Songs in the 1980s–2000s show higher “happiness” scores. Songs become more rhythm-driven and beat-focused.
+
+# Functions Used
+
+::: {.callout-note title="Functions Used"}
+
+**dplyr:** `select()`, `mutate()`, `filter()`, `group_by()`, `summarise()`, `case_when()`
+
+**tidyr:** `pivot_longer()`
+
+**ggplot2:** `ggplot()`, `geom_point()`, `geom_boxplot()`, `geom_smooth()`, `facet_wrap()`, `labs()`, `theme()`, `theme_minimal()`
+
+:::
+
+

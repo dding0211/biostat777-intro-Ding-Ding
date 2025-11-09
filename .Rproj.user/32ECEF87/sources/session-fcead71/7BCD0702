@@ -1,0 +1,31 @@
+{
+    "id": "7BCD0702",
+    "path": "~/Desktop/Ding Ding/Example Analysis.qmd",
+    "project_path": "Example Analysis.qmd",
+    "type": "quarto_markdown",
+    "hash": "2246051518",
+    "contents": "",
+    "dirty": false,
+    "created": 1762712200537.0,
+    "source_on_save": false,
+    "relative_order": 4,
+    "properties": {
+        "rmdVisualMode": "false",
+        "rmdVisualWrapConfigured": "true",
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "253,0",
+        "scrollLine": "241",
+        "docOutlineVisible": "1",
+        "rmdVisualCollapsedChunks": "",
+        "rmdVisualModeLocation": "7579:4949.5"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1762728486,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1762728486519,
+    "read_only": false,
+    "read_only_alternatives": []
+}

@@ -1,0 +1,430 @@
+---
+title: "Triton_Alert"
+author: "Ding Ding"
+date: "2025-05-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r }
+Alert <- read.csv("Alert.csv")
+attach(Alert)
+```
+
+## Creating Binary Variable and cleaning 
+
+```{r }
+Gender_binary <- ifelse(Gender == 1, 1, 0)
+Alert_new <- data.frame(Gender_binary, Alert)
+Alert_new <- Alert_new[-23, ]
+Alert_new <- Alert_new[-42, ]
+Alert_new <- Alert_new[-98, ]
+Alert_new <- Alert_new[-95, ]
+Alert_new <- Alert_new[-41, ]
+Alert_new <- Alert_new[,-2]
+rownames(Alert_new) <- NULL
+```
+
+```{r}
+Race_binary <- ifelse(grepl("\\b2\\b", Alert_new$Race_Ethnicity), 1, 0)
+Alert_new$Race_binary <- Race_binary
+```
+
+## Counts where 0 = other
+```{r}
+table(Alert_new$Race_binary)
+table(Alert_new$Gender_binary)
+table(Alert_new$Residency)
+```
+
+
+```{r}
+library(ggplot2)
+
+# Count frequency
+gender_counts <- table(Alert_new$Gender)
+
+# Turn into data frame for ggplot2
+gender_df <- as.data.frame(gender_counts)
+colnames(gender_df) <- c("Gender", "Count")
+
+gender_labels <- c(
+  "1" = "Cis-gender Woman",
+  "2" = "Cis-gender Man",
+  "3" = "Transgender Woman",
+  "4" = "Transgender Man",
+  "5" = "Agender",
+  "6" = "Non-Binary",
+  "7" = "Other"
+)
+gender_df$Gender <- gender_labels[as.character(gender_df$Gender)]
+
+# Bar plot
+ggplot(gender_df, aes(x = Gender, y = Count, fill = Gender)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  labs(title = "Gender Distribution", x = "Gender", y = "Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+```{r}
+Alert_new$Race_Ethnicity <- gsub("\\b6\\b", "7", Alert_new$Race_Ethnicity)
+```
+
+
+```{r}
+t.test(Anxiety_2 ~ Gender_binary, data = Alert_new)
+t.test(Anxiety_2 ~ Residency, data = Alert_new)
+t.test(Anxiety_2 ~ Race_binary, data = Alert_new)
+```
+
+```{r}
+t.test(Anxiety_1 ~ Gender_binary, data = Alert_new)
+t.test(Anxiety_1 ~ Residency, data = Alert_new)
+t.test(Anxiety_1 ~ Race_binary, data = Alert_new)
+```
+
+
+```{r}
+Alert_new$cis_gender_group <- ifelse(
+  Alert_new$Gender == 1, 1, 
+  ifelse(Alert_new$Gender %in% c(2, 4), 2,
+  ifelse(Alert_new$Gender %in% c(6, 7), 3, NA))
+)
+```
+
+```{r}
+aggregate(Anxiety_2 ~ cis_gender_group, data = Alert_new, mean)
+table(Alert_new$cis_gender_group)
+```
+
+
+```{r}
+library(dplyr)
+df_subset <- Alert_new %>%
+  filter(cis_gender_group %in% c(1, 2))
+
+t.test(Anxiety_2 ~ cis_gender_group, data = df_subset)
+
+table(df_subset$cis_gender_group)
+
+aggregate(Anxiety_2 ~ cis_gender_group, data = df_subset, mean)
+```
+
+
+```{r}
+# Recode Race_Ethnicity into a new variable: race_recode
+Alert_new$race_recode <- sapply(Alert_new$Race_Ethnicity, function(x) {
+  # Split values into vector
+  codes <- unlist(strsplit(as.character(x), ","))
+
+  # Trim whitespace
+  codes <- trimws(codes)
+
+  # If more than one code OR the only code is 5 → return 7 (Other)
+  if (length(codes) > 1 || codes %in% "5") {
+    return(7)
+  }
+
+  # If single code and is 1–4 → keep original
+  return(as.numeric(codes))
+})
+
+table(Alert_new$race_recode)
+
+Alert_new <- Alert_new[,-1]
+
+anova_result <- aov(Anxiety_2 ~ as.factor(race_recode), data = Alert_new)
+summary(anova_result)
+aggregate(Anxiety_2 ~ race_recode, data = Alert_new, mean)
+```
+
+```{r}
+Alert_new$binary_race <- ifelse(Alert_new$race_recode == 2, 1, 0)
+t.test(Anxiety_2 ~ binary_race, data = Alert_new)
+```
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# Define variable names and labels
+precaution_vars <- c("Precaution_Weapons", "Precaution_Burglary", 
+                     "Precaution_Weather", "Precaution_SA", "Precaution_Arson")
+
+precaution_labels <- c(
+  "Precaution_Weapons"   = "Weapon Law Violation",
+  "Precaution_Burglary"  = "Burglary",
+  "Precaution_Weather"   = "Weather",
+  "Precaution_SA"        = "Sexual Assault",
+  "Precaution_Arson"     = "Arson"
+)
+
+# Reshape to long format
+df_long <- Alert_new %>%
+  pivot_longer(cols = all_of(precaution_vars),
+               names_to = "Precaution_Type",
+               values_to = "Response") %>%
+  filter(Response %in% 1:5)
+
+# Calculate proportions and cleaned labels
+df_prop <- df_long %>%
+  group_by(Residency, Precaution_Type, Response) %>%
+  summarise(Count = n(), .groups = "drop") %>%
+  group_by(Residency, Precaution_Type) %>%
+  mutate(
+    Percent = Count / sum(Count) * 100,
+    Direction = case_when(
+      Response %in% c(1, 2) ~ -Percent,
+      Response %in% c(4, 5) ~ Percent,
+      TRUE ~ 0
+    ),
+    Clean_Label = precaution_labels[Precaution_Type]
+  )
+
+# Set colors
+likert_colors <- c(
+  "1" = "#e41a1c",    # Never
+  "2" = "#ff7f00",    # Almost Never
+  "4" = "#a6cee3",    # Almost Every Time
+  "5" = "#1f78b4"     # Every Time
+)
+
+# COMMUTER chart
+commuter_precaution_plot <-ggplot(df_prop %>% filter(Response != 3, Residency == 0),
+       aes(x = Clean_Label, y = Direction, fill = as.factor(Response))) +
+  geom_bar(stat = "identity", position = "stack") +
+  coord_flip() +
+  scale_fill_manual(
+    values = likert_colors,
+    labels = c("Never", "Almost Never", "Almost Every Time", "Every Time"),
+    name = "Response"
+  ) +
+  labs(
+    title = "Commuter Precaution Responses",
+    y = "Percentage",
+    x = "Alert Type"
+  ) +
+  ylim(-80, 80) +
+  theme_minimal(base_size = 14) 
+
+# RESIDENT chart
+resident_precaution_plot <-ggplot(df_prop %>% filter(Response != 3, Residency == 1),
+       aes(x = Clean_Label, y = Direction, fill = as.factor(Response))) +
+  geom_bar(stat = "identity", position = "stack") +
+  coord_flip() +
+  scale_fill_manual(
+    values = likert_colors,
+    labels = c("Never", "Almost Never", "Almost Every Time", "Every Time"),
+    name = "Response"
+  ) +
+  labs(
+    title = "Resident Precaution Responses",
+    y = "Percentage",
+    x = "Alert Type"
+  ) +
+  ylim(-80, 80) +
+  theme_minimal(base_size = 14)
+
+commuter_precaution_plot
+resident_precaution_plot
+
+```
+
+
+
+
+
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# Define your clean labels (fixed order)
+label_map <- c(
+  Response_Skip = "Skip Class",
+  Response_Avoid = "Avoid the Incident Area",
+  Response_Buddy = "Buddy Up",
+  Response_Ignore = "Ignore the Alert",
+  Response_Heart = "Heart Racing",
+  Response_Concentrate = "Trouble Concentrating"
+)
+
+label_order <- c(
+  "Skip Class", "Avoid the Incident Area", "Buddy Up",
+  "Ignore the Alert", "Heart Racing", "Trouble Concentrating"
+)
+
+# Filter only relevant response columns
+response_vars <- names(Alert_new)[names(Alert_new) %in% names(label_map)]
+
+# Reshape to long format
+df_long <- Alert_new %>%
+  pivot_longer(cols = all_of(response_vars),
+               names_to = "Response_Type",
+               values_to = "Response") %>%
+  filter(Response %in% 1:5)
+
+# Compute proportions
+df_prop <- df_long %>%
+  group_by(Residency, Response_Type, Response) %>%
+  summarise(Count = n(), .groups = "drop") %>%
+  group_by(Residency, Response_Type) %>%
+  mutate(
+    Percent = Count / sum(Count) * 100,
+    Direction = case_when(
+      Response %in% c(1, 2) ~ -Percent,
+      Response %in% c(4, 5) ~ Percent,
+      TRUE ~ 0
+    ),
+    Clean_Label = factor(label_map[Response_Type], levels = label_order)  # Fix label order
+  )
+
+# Set Likert colors
+likert_colors <- c(
+  "1" = "#e41a1c",  # Never - light green
+  "2" = "#ff7f00",  # Almost Never - dark green
+  "4" = "#b2df8a",  # Almost Every Time - light purple
+  "5" = "#33a02c"   # Every Time - deep purple 
+)
+
+# COMMUTER plot
+commuter_response_plot<-ggplot(df_prop %>% filter(Response != 3, Residency == 0),
+       aes(x = Direction, y = Clean_Label, fill = as.factor(Response))) +
+  geom_bar(stat = "identity", position = "stack") +
+  scale_fill_manual(
+    values = likert_colors,
+    labels = c("Never", "Almost Never", "Almost Every Time", "Every Time"),
+    name = "Response"
+  ) +
+  labs(
+    title = "Commuter Response Patterns",
+    x = "Percentage",
+    y = NULL
+  ) +
+  xlim(-80, 80) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "right")
+
+# RESIDENT plot
+resident_response_plot <-ggplot(df_prop %>% filter(Response != 3, Residency == 1),
+       aes(x = Direction, y = Clean_Label, fill = as.factor(Response))) +
+  geom_bar(stat = "identity", position = "stack") +
+  scale_fill_manual(
+    values = likert_colors,
+    labels = c("Never", "Almost Never", "Almost Every Time", "Every Time"),
+    name = "Response"
+  ) +
+  labs(
+    title = "Resident Response Patterns",
+    x = "Percentage",
+    y = NULL
+  ) +
+  xlim(-80, 80) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "right")
+
+commuter_response_plot
+resident_response_plot
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(broom)
+
+# Load your dataset
+Alert_new <- read.csv("Alert_new2.csv")
+
+# Identify all response variables
+response_vars <- grep("^Response_", names(Alert_new), value = TRUE)
+
+# Function to run t-test and extract stats
+compare_means <- function(var) {
+  t_result <- t.test(Alert_new[[var]] ~ Alert_new$Residency)
+  tibble(
+    Response_Variable = var,
+    Mean_Commuter = mean(Alert_new[[var]][Alert_new$Residency == 0], na.rm = TRUE),
+    Mean_Resident = mean(Alert_new[[var]][Alert_new$Residency == 1], na.rm = TRUE),
+    p_value = t_result$p.value
+  )
+}
+
+# Apply function to all response variables and combine results
+results_table <- map_dfr(response_vars, compare_means)
+
+# Round for presentation
+results_table <- results_table %>%
+  mutate(
+    Mean_Commuter = round(Mean_Commuter, 2),
+    Mean_Resident = round(Mean_Resident, 2),
+    p_value = round(p_value, 4)
+  )
+
+# View result
+print(results_table)
+```
+
+```{r}
+Alert_new$Anxiety_bivariate <- ifelse(Alert_new$Anxiety_2 %in% c(3, 4, 5), 1,
+                               ifelse(Alert_new$Anxiety_2 %in% c(1, 2), 0, NA))
+```
+
+```{r}
+table_residency_anxiety <- table(Alert_new$Residency, Alert_new$Anxiety_bivariate)
+print(table_residency_anxiety)
+chisq.test(table_residency_anxiety)
+# For comparing proportion of anxiety between groups
+prop.test(table_residency_anxiety)
+fisher.test(table_residency_anxiety)
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+# Recode Residency for better labels
+Alert_new$Residency_label <- ifelse(Alert_new$Residency == 1, "Resident", "Commuter")
+Alert_new$Anxiety_label <- ifelse(Alert_new$Anxiety_bivariate == 1, "Has Anxiety", "No Anxiety")
+
+# Create summary table for plotting
+pie_df <- Alert_new %>%
+  group_by(Residency_label, Anxiety_label) %>%
+  summarise(Count = n()) %>%
+  mutate(Proportion = Count / sum(Count))
+ggplot(pie_df, aes(x = "", y = Proportion, fill = Anxiety_label)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y") +
+  facet_wrap(~ Residency_label) +
+  labs(title = "Proportion of Anxiety by Residency",
+       fill = "Anxiety Status") +
+  theme_void() +
+  theme(legend.position = "bottom")
+
+```
+
+```{r}
+# Filter only cisgender women (1) and men (2)
+gender_anxiety_df <- subset(Alert_new, cis_gender_group %in% c(1, 2))
+
+# Create the contingency table
+table_gender_anxiety <- table(gender_anxiety_df$cis_gender_group, gender_anxiety_df$Anxiety_bivariate)
+
+# Print the table with clearer row/column names
+rownames(table_gender_anxiety) <- c("Women", "Men")
+colnames(table_gender_anxiety) <- c("No Anxiety", "Has Anxiety")
+print(table_gender_anxiety)
+prop.test(table_gender_anxiety)
+```
+

@@ -1,0 +1,58 @@
+[
+  {
+    "objectID": "about.html",
+    "href": "about.html",
+    "title": "About",
+    "section": "",
+    "text": "Johns Hopkins Bloomberg School of Public Health\n\nScM in Biostatistics (Aug 2025 - June 2027 Expected)\n\nUniversity of California, San Diego\n\nBS in Public Health (Sept 2021 - June 2025)\n\n\n\n\n\nAside from being a foodie, I also enjoy reading and learning about food ethnography, and playing switch.\nDuring my undergraduate studies, I also developed a strong interest in medical anthropology, which offered me qualitative perspectives on how patients’ illness and disease experiences vary across different health-care systems."
+  },
+  {
+    "objectID": "about.html#education-background",
+    "href": "about.html#education-background",
+    "title": "About",
+    "section": "",
+    "text": "Johns Hopkins Bloomberg School of Public Health\n\nScM in Biostatistics (Aug 2025 - June 2027 Expected)\n\nUniversity of California, San Diego\n\nBS in Public Health (Sept 2021 - June 2025)"
+  },
+  {
+    "objectID": "about.html#interests",
+    "href": "about.html#interests",
+    "title": "About",
+    "section": "",
+    "text": "Aside from being a foodie, I also enjoy reading and learning about food ethnography, and playing switch.\nDuring my undergraduate studies, I also developed a strong interest in medical anthropology, which offered me qualitative perspectives on how patients’ illness and disease experiences vary across different health-care systems."
+  },
+  {
+    "objectID": "Example Analysis.html",
+    "href": "Example Analysis.html",
+    "title": "Example Analysis",
+    "section": "",
+    "text": "This page will analyze billboard data about every song to ever top the Billboard Hot 100 between August 4, 1958 and January 11, 2025.\n\n\n\n\n\n\n\nNoteNotes on dataset\n\n\n\nThe original dataset contains 105 variables. We’ll only keep 10 variables of interests for this analysis using the reduced billboard dataset.\n\n\n\n# Using R\n# Option 1: tidytuesdayR R package \n## install.packages(\"tidytuesdayR\")\n\ntuesdata &lt;- tidytuesdayR::tt_load('2025-08-26')\n\n---- Compiling #TidyTuesday Information for 2025-08-26 ----\n--- There are 2 files available ---\n\n\n── Downloading files ───────────────────────────────────────────────────────────\n\n  1 of 2: \"billboard.csv\"\n  2 of 2: \"topics.csv\"\n\n## OR\ntuesdata &lt;- tidytuesdayR::tt_load(2025, week = 34)\n\n---- Compiling #TidyTuesday Information for 2025-08-26 ----\n--- There are 2 files available ---\n\n\n── Downloading files ───────────────────────────────────────────────────────────\n\n  1 of 2: \"billboard.csv\"\n  2 of 2: \"topics.csv\"\n\nbillboard &lt;- tuesdata$billboard\ntopics &lt;- tuesdata$topics\n\n# Option 2: Read directly from GitHub\n\nbillboard &lt;- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2025/2025-08-26/billboard.csv')\n\nRows: 1177 Columns: 105\n── Column specification ────────────────────────────────────────────────────────\nDelimiter: \",\"\nchr  (26): song, artist, label, parent_label, cdr_genre, cdr_style, discogs_...\ndbl  (78): weeks_at_number_one, non_consecutive, rating_1, rating_2, rating_...\ndttm  (1): date\n\nℹ Use `spec()` to retrieve the full column specification for this data.\nℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.\n\n\n\nlibrary(dplyr)\n\n\nAttaching package: 'dplyr'\n\n\nThe following objects are masked from 'package:stats':\n\n    filter, lag\n\n\nThe following objects are masked from 'package:base':\n\n    intersect, setdiff, setequal, union\n\n# keep exactly these variables\nbillboard_reduced &lt;- billboard %&gt;%\n  select(\n    artist,\n    song,\n    date,\n    foreign_language,\n    intro_length_sec,\n    happiness,\n    danceability,\n    energy,\n    bpm,\n    overall_rating\n  )"
+  },
+  {
+    "objectID": "Example Analysis.html#plot-1-song-ratings-by-into-length-boxplot",
+    "href": "Example Analysis.html#plot-1-song-ratings-by-into-length-boxplot",
+    "title": "Example Analysis",
+    "section": "Plot 1: Song Ratings by Into Length (Boxplot)",
+    "text": "Plot 1: Song Ratings by Into Length (Boxplot)\n\nlibrary(dplyr)\nlibrary(ggplot2)\n\nbillboard_intro_groups &lt;- billboard_reduced %&gt;%\n  mutate(intro_category = case_when(\n    intro_length_sec &lt;= 10 ~ \"Short (0–10s)\",\n    intro_length_sec &lt;= 30 ~ \"Medium (11–30s)\",\n    TRUE ~ \"Long (30s+)\"\n  ))\n\nbillboard_intro_groups %&gt;%\n  ggplot(aes(intro_category, overall_rating, fill = intro_category)) +\n  geom_boxplot() +\n  labs(\n    title = \"Song Ratings by Intro Length Category\",\n    x = \"Intro Length Category\",\n    y = \"Overall Rating\"\n  ) +\n  theme(legend.position = \"none\")"
+  },
+  {
+    "objectID": "Example Analysis.html#plot-2-bpm-intro-length-happiness-level-trends-across-time",
+    "href": "Example Analysis.html#plot-2-bpm-intro-length-happiness-level-trends-across-time",
+    "title": "Example Analysis",
+    "section": "Plot 2: BPM, Intro Length, Happiness level trends across time",
+    "text": "Plot 2: BPM, Intro Length, Happiness level trends across time\n\nlibrary(dplyr)\nlibrary(ggplot2)\nlibrary(tidyr)\n\n\nAttaching package: 'tidyr'\n\n\nThe following object is masked _by_ '.GlobalEnv':\n\n    billboard\n\nlibrary(lubridate)\n\n\nAttaching package: 'lubridate'\n\n\nThe following objects are masked from 'package:base':\n\n    date, intersect, setdiff, union\n\nbillboard_reduced &lt;- billboard_reduced %&gt;%\n  mutate(date = as.Date(date))\n\n# Select + reshape data into long format\ntrend_data &lt;- billboard_reduced %&gt;%\n  select(date, intro_length_sec, bpm, happiness) %&gt;%\n  pivot_longer(\n    cols = c(intro_length_sec, bpm, happiness),\n    names_to = \"feature\",\n    values_to = \"value\"\n  )\n\n# Plot\ntrend_data %&gt;%\n  ggplot(aes(x = date, y = value, color = feature)) +\n  geom_point(alpha = 0.4) +\n  geom_smooth(se = FALSE) +\n  facet_wrap(~ feature, scales = \"free_y\") +\n  labs(\n    title = \"Song Intro Length, BPM, and Happiness Levl Across Time\",\n    subtitle = \"Each facet shows how a musical characteristic trends across time\",\n    x = \"Year / Date\",\n    y = \"Value\",\n    color = \"Feature\"\n  ) +\n  theme_minimal()\n\n`geom_smooth()` using method = 'gam' and formula = 'y ~ s(x, bs = \"cs\")'\n\n\nWarning: Removed 4 rows containing non-finite outside the scale range\n(`stat_smooth()`).\n\n\nWarning: Removed 4 rows containing missing values or values outside the scale range\n(`geom_point()`)."
+  },
+  {
+    "objectID": "Example Analysis.html#plot-3-bpm-and-mood-by-high-rated-songs-and-low-rated-songs",
+    "href": "Example Analysis.html#plot-3-bpm-and-mood-by-high-rated-songs-and-low-rated-songs",
+    "title": "Example Analysis",
+    "section": "Plot 3: BPM and Mood by High rated songs and low rated songs",
+    "text": "Plot 3: BPM and Mood by High rated songs and low rated songs\n\nlibrary(dplyr)\n\nbillboard_grouped &lt;- billboard_reduced %&gt;%\n  filter(!is.na(overall_rating)) %&gt;%\n  mutate(\n    rating_category = case_when(\n      overall_rating &gt;= quantile(overall_rating, 0.75, na.rm = TRUE) ~ \"High Rated\",\n      overall_rating &lt;= quantile(overall_rating, 0.25, na.rm = TRUE) ~ \"Low Rated\"\n    )\n  ) %&gt;%\n  # keep only high/low\n  filter(!is.na(rating_category))\n\n#BPM\nbillboard_grouped %&gt;%\n  ggplot(aes(x = rating_category, y = bpm, fill = rating_category)) +\n  geom_boxplot() +\n  labs(\n    title = \"BPM of High vs Low Rated Songs\",\n    x = \"\",\n    y = \"Beats Per Minute (BPM)\"\n  ) +\n  theme(legend.position = \"none\")\n\nWarning: Removed 1 row containing non-finite outside the scale range\n(`stat_boxplot()`).\n\n\n\n\n\n\n\n\n#Mood\nlibrary(tidyr)\nlibrary(ggplot2)\n\nbillboard_grouped %&gt;%\n  select(rating_category, happiness, danceability, energy) %&gt;%\n  pivot_longer(cols = -rating_category, names_to = \"feature\", values_to = \"value\") %&gt;%\n  ggplot(aes(x = rating_category, y = value, fill = rating_category)) +\n  geom_boxplot() +\n  facet_wrap(~ feature, scales = \"free\") +\n  labs(\n    title = \"Musical Characteristics: High vs Low Rated Songs\",\n    x = \"\",\n    y = \"Value\"\n  ) +\n  theme(legend.position = \"none\")\n\nWarning: Removed 3 rows containing non-finite outside the scale range\n(`stat_boxplot()`).\n\n\n\n\n\n\n\n\n\n\n\n\nTable Summary of Features: High vs Low Rated Songs\n\n\n\n\n\n\n\n\n\n\nrating_category\navg_bpm\navg_energy\navg_happiness\navg_danceability\nn\n\n\n\n\nHigh Rated\n116\n60.9\n65.2\n63.3\n331\n\n\nLow Rated\n116\n58.9\n58.8\n62.0\n358"
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Ding Ding",
+    "section": "",
+    "text": "Hi, My name is Ding Ding. I’m a first year ScM student in Biostatistics at Johns Hopkins University.\nI enjoy cooking, baking, and any food-related recreational activities. Here is the famous dish I recreated from Ratatouille:"
+  }
+]
